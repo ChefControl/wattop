@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/tupe12334/wattop/compare/wattop-v0.4.1...wattop-v0.4.2) (2026-11-22)
+
+
+### Documentation
+
+* add dashboard video and screenshots to the README ([#14](https://github.com/tupe12334/wattop/issues/14)) ([485e98e](https://github.com/tupe12334/wattop/commit/485e98e2ffdeb547e39c835264c6e23c97d868ec))
+
 ## [0.4.1](https://github.com/tupe12334/wattop/compare/wattop-v0.4.0...wattop-v0.4.1) (2026-11-12)
 
 
