@@ -137,7 +137,9 @@ The bundle id of the extension must start with the bundle id of the app. The def
 
 The script draws every state of the widget in both sizes. It writes `widget/build/states-dark.png` and `widget/build/states-light.png`. It compiles the real views, so the pictures follow the code. The states are the cases in [widget/Preview/States.swift](../widget/Preview/States.swift). Add a case there when the widget gains a state.
 
-The script draws a plain tile behind each widget. macOS supplies the real background, and the script cannot show the dimmed, clear or tinted widget styles.
+It also writes `widget/build/widget-dark.png` and `widget/build/widget-light.png`, the picture in the README. Copy them to `docs/media/` when the look of the widget changes.
+
+The script draws a plain tile under each widget's own background, with its net tint. macOS supplies the real surface, and the script cannot show the dimmed, clear or tinted widget styles.
 
 ## Check a change
 

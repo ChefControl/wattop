@@ -1,4 +1,5 @@
-// Renders every state of the Power Flow widget into one PNG for each appearance.
+// Renders every state of the Power Flow widget into one PNG for each appearance, and the
+// README picture, docs/media/widget-{dark,light}.png.
 // It compiles the real views from ../Sources, without WidgetKit's timeline code.
 // Run it with ../preview.sh. Add a case here when the widget gains a state.
 
@@ -188,20 +189,56 @@ private struct Sheet: View {
     }
 }
 
+/// The picture for the README: the widget in three states, on a clear background so it
+/// sits on the page of either GitHub theme.
+private struct Showcase: View {
+    /// A step of the flow animation with the pulses well inside their legs.
+    static let frame = 0.6
+
+    private func state(_ name: String) -> PowerSample? {
+        guard let item = cases.first(where: { $0.name == name }) else {
+            fatalError("no state named \(name)")
+        }
+        return item.sample
+    }
+
+    var body: some View {
+        HStack(spacing: 20) {
+            Tile(family: .systemMedium, sample: state("Charging, fast"), frame: Self.frame)
+            Tile(family: .systemSmall, sample: state("On battery, gentle"), frame: Self.frame)
+            Tile(
+                family: .systemSmall, sample: state("Powering a device, on battery"),
+                frame: Self.frame)
+        }
+        .padding(8)
+    }
+}
+
+/// Writes a view as a PNG at twice its size.
+@MainActor
+private func write<Content: View>(_ view: Content, to file: URL) {
+    let renderer = ImageRenderer(content: view)
+    renderer.scale = 2
+    guard let tiff = renderer.nsImage?.tiffRepresentation,
+        let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
+    else { fatalError("could not render \(file.lastPathComponent)") }
+    do { try png.write(to: file) } catch { fatalError("\(error)") }
+    print("Wrote \(file.path)")
+}
+
 @main
 enum States {
     @MainActor
     static func main() {
         let folder = CommandLine.arguments.dropFirst().first ?? "."
+        let base = URL(fileURLWithPath: folder)
         for (scheme, name) in [(ColorScheme.dark, "dark"), (ColorScheme.light, "light")] {
-            let renderer = ImageRenderer(content: Sheet().environment(\.colorScheme, scheme))
-            renderer.scale = 2
-            guard let tiff = renderer.nsImage?.tiffRepresentation,
-                let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
-            else { fatalError("could not render the \(name) sheet") }
-            let file = URL(fileURLWithPath: folder).appendingPathComponent("states-\(name).png")
-            do { try png.write(to: file) } catch { fatalError("\(error)") }
-            print("Wrote \(file.path)")
+            write(
+                Sheet().environment(\.colorScheme, scheme),
+                to: base.appendingPathComponent("states-\(name).png"))
+            write(
+                Showcase().environment(\.colorScheme, scheme),
+                to: base.appendingPathComponent("widget-\(name).png"))
         }
     }
 }

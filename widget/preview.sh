@@ -1,6 +1,7 @@
 #!/bin/sh
 # Draws every state of the Power Flow widget, without installing it.
-# Output: widget/build/states-dark.png and widget/build/states-light.png.
+# Output: widget/build/states-{dark,light}.png with every state, and
+# widget/build/widget-{dark,light}.png, the README picture. Copy those two to docs/media/.
 # The cases are in Preview/States.swift. Needs the Xcode command line tools.
 set -eu
 cd "$(dirname "$0")"
