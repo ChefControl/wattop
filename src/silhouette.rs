@@ -1,4 +1,4 @@
-//! Top-down laptop outline that shows which physical port the charger uses.
+//! Open-laptop outline, seen from the front, that shows which physical port the charger uses.
 
 use crate::{flow, panel};
 use ratatui::{
@@ -80,14 +80,20 @@ pub fn model() -> String {
         .unwrap_or_default()
 }
 
-const BODY_W: i32 = 12;
-const BODY_H: i32 = 7;
+/// Widest row of the drawing: the front edge of the deck.
+const BODY_W: i32 = 18;
+/// Screen (4 rows) above the deck (4 rows).
+const BODY_H: i32 = 8;
 /// Width that leaves room for labels and cables on both sides.
 const LABEL_W: i32 = 36;
+/// First deck row. The screen takes the rows above it.
+const DECK_Y: i32 = 4;
+/// Cells between the left end of the front edge and the left edge of the hinge row.
+const DECK_INSET: i32 = 3;
 
-/// Body row for a port. Slots spread over the four interior rows.
-fn row(p: &PortPos) -> i32 {
-    1 + (p.slot as i32 - 1) * 4 / (p.slots as i32 - 1).max(1)
+/// Deck row for a port: 0 at the hinge (back) to 3 at the front edge.
+fn deck_row(p: &PortPos) -> i32 {
+    (p.slot as i32 - 1) * 3 / (p.slots as i32 - 1).max(1)
 }
 
 pub fn draw(f: &mut Frame, area: Rect, s: &Sample, ports: Option<&'static [PortPos]>) {
@@ -130,29 +136,31 @@ fn list(f: &mut Frame, inner: Rect, s: &Sample) {
 
 fn outline(f: &mut Frame, inner: Rect, s: &Sample, ports: &[PortPos]) {
     let w = inner.width as i32;
-    let bx = (w - BODY_W) / 2; // body left edge
-    let rb = bx + BODY_W - 1; // body right edge
+    let x0 = (w - BODY_W) / 2; // left end of the front edge
     let labels = w >= LABEL_W;
     let dim = Style::new().fg(Color::DarkGray);
     let buf = f.buffer_mut();
 
-    let body = [
-        "╭──────────╮".to_string(),
-        "│▪▪▪▪▪▪▪▪▪▪│".to_string(),
-        "│▪▪▪▪▪▪▪▪▪▪│".to_string(),
-        "│   ┌──┐   │".to_string(),
-        "│   └──┘   │".to_string(),
-        "│          │".to_string(),
-        "╰──────────╯".to_string(),
+    // An open laptop seen from the front. The deck widens by one cell per row toward the viewer.
+    let art = [
+        "   ╭──────────╮",
+        "   │          │",
+        "   │          │",
+        "   ╰──────────╯",
+        "   ╱▪▪▪▪▪▪▪▪▪▪╲",
+        "  ╱▪▪▪▪▪▪▪▪▪▪▪▪╲",
+        " ╱     ╶──╴     ╲",
+        "╱▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁╲",
     ];
-    for (y, line) in body.iter().enumerate() {
-        for (x, ch) in line.chars().enumerate() {
-            flow::put(buf, inner, bx + x as i32, y as i32, &ch.to_string(), dim);
+    for (y, line) in art.iter().enumerate() {
+        for (x, ch) in line.chars().enumerate().filter(|(_, ch)| *ch != ' ') {
+            flow::put(buf, inner, x0 + x as i32, y as i32, &ch.to_string(), dim);
         }
     }
 
     for p in ports {
-        let y = row(p);
+        let d = deck_row(p);
+        let y = DECK_Y + d;
         let on = s.power_ports.iter().any(|n| n == p.name);
         let out = s.port_out.iter().any(|o| o.name == p.name);
         let style = if on {
@@ -162,34 +170,29 @@ fn outline(f: &mut Frame, inner: Rect, s: &Sample, ports: &[PortPos]) {
         } else {
             dim
         };
-        let notch = if p.side == Side::Left { "▐" } else { "▌" };
-        let edge = if p.side == Side::Left { bx } else { rb };
-        flow::put(buf, inner, edge, y, notch, style);
+        let len = p.short.chars().count() as i32;
+        // The deck edge on the port's row takes the port's colour.
+        // `cable` is the two cells between the label and the edge, read left to right.
+        let (edge, slash, cable, label) = match p.side {
+            Side::Left => {
+                let edge = x0 + DECK_INSET - d;
+                let cable = if on { "═▶" } else { "◀═" };
+                (edge, "╱", (edge - 2, cable), (edge - 3 - len).max(0))
+            }
+            Side::Right => {
+                let edge = x0 + BODY_W - 1 - DECK_INSET + d;
+                let cable = if on { "◀═" } else { "═▶" };
+                (edge, "╲", (edge + 1, cable), (edge + 4).min(w - len))
+            }
+        };
+        flow::put(buf, inner, edge, y, slash, style);
         if !labels {
             continue;
         }
-        let text_style = if on || out { style } else { dim };
-        match p.side {
-            Side::Left => {
-                if on || out {
-                    let (tip, sym) = if on { (bx - 1, "▶") } else { (bx - 4, "◀") };
-                    for x in (bx - 4)..bx {
-                        flow::put(buf, inner, x, y, if x == tip { sym } else { "═" }, style);
-                    }
-                }
-                let start = bx - 5 - p.short.chars().count() as i32;
-                flow::put_str(buf, inner, start, y, p.short, text_style);
-            }
-            Side::Right => {
-                if on || out {
-                    let (tip, sym) = if on { (rb + 1, "◀") } else { (rb + 4, "▶") };
-                    for x in (rb + 1)..(rb + 5) {
-                        flow::put(buf, inner, x, y, if x == tip { sym } else { "═" }, style);
-                    }
-                }
-                flow::put_str(buf, inner, rb + 5, y, p.short, text_style);
-            }
+        if on || out {
+            flow::put_str(buf, inner, cable.0, y, cable.1, style);
         }
+        flow::put_str(buf, inner, label, y, p.short, style);
     }
 }
 
@@ -236,6 +239,92 @@ mod tests {
                 .all(|p| p.name == "MagSafe" || p.name.starts_with("USB-C")),
             "non-power port in layout: {ports:?}"
         );
+    }
+
+    #[test]
+    fn slots_map_to_deck_rows_from_the_hinge() {
+        // Mac16,1: three left ports on adjacent rows at the back, one right port on the second row.
+        let ports = layout("Mac16,1").unwrap();
+        assert_eq!(ports.iter().map(deck_row).collect::<Vec<_>>(), [0, 1, 2, 1]);
+    }
+
+    #[test]
+    fn charging_port_draws_green_arrow_into_body() {
+        let s = Sample {
+            plugged_in: true,
+            power_ports: vec!["USB-C port 1".into()],
+            ..Default::default()
+        };
+        let ports = layout("Mac16,1").unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(40, 9)).unwrap();
+        terminal.draw(|f| outline(f, f.area(), &s, ports)).unwrap();
+        let buf = terminal.backend().buffer();
+        // Slot 3 of 4 sits on the third deck row, below the four screen rows.
+        let arrow = buf
+            .content()
+            .iter()
+            .position(|c| c.symbol() == "▶" && c.fg == Color::LightGreen)
+            .expect("green arrow");
+        assert_eq!(arrow / 40, 6);
+        // The deck edge next to the arrow takes the port's colour.
+        assert_eq!(buf.content()[arrow + 1].symbol(), "╱");
+        assert_eq!(buf.content()[arrow + 1].fg, Color::LightGreen);
+    }
+
+    /// Renders the outline on a `w` x 9 buffer and returns its rows as text.
+    fn render(s: &Sample, model: &str, w: u16) -> Vec<String> {
+        let ports = layout(model).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(w, 9)).unwrap();
+        terminal.draw(|f| outline(f, f.area(), s, ports)).unwrap();
+        let buf = terminal.backend().buffer();
+        buf.content()
+            .chunks(w as usize)
+            .map(|row| row.iter().map(|c| c.symbol()).collect())
+            .collect()
+    }
+
+    #[test]
+    fn open_laptop_has_empty_screen_and_labels_on_port_rows() {
+        let s = Sample {
+            plugged_in: true,
+            power_ports: vec!["USB-C port 1".into()],
+            ..Default::default()
+        };
+        let rows = render(&s, "Mac16,1", 36);
+        assert_eq!(
+            rows,
+            [
+                "            ╭──────────╮            ",
+                "            │          │            ",
+                "            │          │            ",
+                "            ╰──────────╯            ",
+                "  MagSafe   ╱▪▪▪▪▪▪▪▪▪▪╲            ",
+                " USB-C 2   ╱▪▪▪▪▪▪▪▪▪▪▪▪╲   USB-C 4 ",
+                "USB-C 1 ═▶╱     ╶──╴     ╲          ",
+                "         ╱▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁╲         ",
+                "                                    ",
+            ]
+        );
+    }
+
+    #[test]
+    fn right_side_port_keeps_label_and_cable_inside_the_panel() {
+        let s = Sample {
+            port_out: vec![PortOut {
+                name: "USB-C port 4".into(),
+                watts: 11.5,
+            }],
+            ..Default::default()
+        };
+        let rows = render(&s, "Mac16,1", 36);
+        assert_eq!(rows[5], " USB-C 2   ╱▪▪▪▪▪▪▪▪▪▪▪▪╲═▶ USB-C 4 ");
+    }
+
+    #[test]
+    fn narrow_panel_draws_the_laptop_without_labels() {
+        let rows = render(&Sample::default(), "Mac16,1", 20);
+        assert_eq!(rows[4], "    ╱▪▪▪▪▪▪▪▪▪▪╲    ");
+        assert!(rows.iter().all(|r| !r.contains("USB-C")));
     }
 
     #[test]
