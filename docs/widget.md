@@ -33,7 +33,7 @@ With a charger that covers everything and a device powered at the same time, the
 
 The widget shows no watts. A number of watts is only right for a moment, and macOS reloads a widget at most every 20 seconds. See [When the widget reloads](#when-the-widget-reloads).
 
-The width of the pulses on a lit leg follows the watts on it. The width grows in proportion to the watts, from 3 points near 0 W to 6.5 points at 100 W and more. The rule is `width` of `Leg` in [widget/Sources/Views.swift](../widget/Sources/Views.swift).
+The width of the pulses on a lit leg follows the watts on it. The width grows in proportion to the watts, from 3 points near 0 W to 6.5 points at 100 W and more. The rule is `width` of `Leg` in [widget/Sources/LoopRing.swift](../widget/Sources/LoopRing.swift).
 
 ## Flow animation
 
@@ -50,7 +50,7 @@ Bright pulses run along a lit leg, from its source. A widget cannot run an anima
 - The widget keeps the start and the end of the run in its own defaults. See `FlowRun` in [widget/Sources/WattopWidget.swift](../widget/Sources/WattopWidget.swift).
 - The 12 entries last 24 seconds. The app reloads the widget every 20 seconds while the user can see it. When the widget is hidden, the pulses stop on the last entry.
 
-The settings are in `Flow` in [widget/Sources/Views.swift](../widget/Sources/Views.swift). The entries are made in `getTimeline` in [widget/Sources/WattopWidget.swift](../widget/Sources/WattopWidget.swift).
+The settings are in `Flow` in [widget/Sources/PowerPresentation.swift](../widget/Sources/PowerPresentation.swift). The entries are made in `getTimeline` in [widget/Sources/WattopWidget.swift](../widget/Sources/WattopWidget.swift).
 
 With **Reduce Motion** on, the legs are solid and nothing moves.
 
@@ -62,7 +62,7 @@ The tint of the background is the one sign of net gain or net loss. The lit legs
 
 Keep this rule when you change the widget. A second cue for the same state adds noise and no information.
 
-VoiceOver cannot read the loop. It reads one sentence with the state and the numbers. See `spokenSummary` in [widget/Sources/Views.swift](../widget/Sources/Views.swift).
+VoiceOver cannot read the loop. It reads one sentence with the state and the numbers. See `spokenSummary` in [widget/Sources/PowerPresentation.swift](../widget/Sources/PowerPresentation.swift).
 
 ## Sizes
 

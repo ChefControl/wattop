@@ -13,6 +13,15 @@ fn widget_bridge() {
     println!("cargo:rerun-if-changed={SOURCE}");
     let out = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
     let lib = out.join("libwidgetbridge.a");
+    // Swift names the Rust `aarch64` arch `arm64`. Other arches have the same name.
+    let arch = match std::env::var("CARGO_CFG_TARGET_ARCH")
+        .expect("target arch")
+        .as_str()
+    {
+        "aarch64" => "arm64".to_string(),
+        other => other.to_string(),
+    };
+    let target = format!("{arch}-apple-macos10.15");
     // The app runs from macOS 10.15. WidgetKit starts at macOS 11 and is linked weakly.
     let status = Command::new("xcrun")
         .args([
@@ -23,7 +32,7 @@ fn widget_bridge() {
             "-static",
         ])
         .args(["-module-name", "WidgetBridge"])
-        .args(["-target", "arm64-apple-macos10.15", SOURCE, "-o"])
+        .args(["-target", &target, SOURCE, "-o"])
         .arg(&lib)
         .status()
         .expect("run swiftc: install the Xcode command line tools");

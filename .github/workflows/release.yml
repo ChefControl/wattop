@@ -132,12 +132,14 @@ jobs:
       # Tauri does not sign the files it copies from `bundle.macOS.files`. The widget must
       # carry the app's identity before the app build, or notarization rejects the app.
       # Tauri imports the certificate only during its own build, so import it here first.
+      # The search list is saved, so that the step after the widget build can restore it.
       - name: Import the certificate for the widget
         if: steps.signing.outputs.enabled == 'true'
         run: |
           set -euo pipefail
           keychain="$RUNNER_TEMP/widget.keychain-db"
           password="$(uuidgen)"
+          security list-keychains -d user > "$RUNNER_TEMP/keychains.txt"
           printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/widget.p12"
           security create-keychain -p "$password" "$keychain"
           security set-keychain-settings -lut 3600 "$keychain"
@@ -153,6 +155,19 @@ jobs:
       - name: Build the desktop widget
         run: ./widget/build.sh
 
+      # Tauri imports the same certificate into a keychain of its own. With the widget
+      # keychain still on the search list, codesign finds the identity twice and stops as
+      # "ambiguous". The widget keeps its signature after its keychain is gone.
+      - name: Remove the widget keychain
+        if: always() && steps.signing.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          if [ -f "$RUNNER_TEMP/keychains.txt" ]; then
+            xargs security list-keychains -d user -s < "$RUNNER_TEMP/keychains.txt"
+          fi
+          security delete-keychain "$RUNNER_TEMP/widget.keychain-db" 2> /dev/null || true
+          rm -f "$RUNNER_TEMP/keychains.txt" "$RUNNER_TEMP/widget.p12"
+
       # Tauri imports the certificate into its own temp keychain, signs the app and
       # sidecar with hardened runtime, notarizes the app and staples it.
       - name: Build app
@@ -163,11 +178,14 @@ jobs:
         run: codesign --verify --deep --strict --verbose=2 target/release/bundle/macos/Wattop.app
 
       # macOS drops a widget that lost the App Sandbox entitlement.
+      # The output is captured first: `grep -q` stops reading at the first match, and
+      # under pipefail the SIGPIPE that codesign then gets would fail the step.
       - name: Verify the widget entitlement
         run: |
-          codesign -d --entitlements - --xml \
-            target/release/bundle/macos/Wattop.app/Contents/PlugIns/WattopWidget.appex \
-            | grep -q com.apple.security.app-sandbox
+          set -euo pipefail
+          entitlements="$(codesign -d --entitlements - --xml \
+            target/release/bundle/macos/Wattop.app/Contents/PlugIns/WattopWidget.appex)"
+          grep -q com.apple.security.app-sandbox <<< "$entitlements"
 
       - name: Verify notarization and stapling of the app
         if: steps.signing.outputs.enabled == 'true'

@@ -8,7 +8,7 @@ struct PowerEntry: TimelineEntry {
     let date: Date
     let sample: PowerSample?
     /// How far the flow animation has run, in steps, and the run it belongs to.
-    /// See `Flow` in Views.swift.
+    /// See `Flow` in PowerPresentation.swift.
     var frame = 0.0
     var batch = 0
 }
@@ -88,7 +88,7 @@ struct WattopWidget: Widget {
             PowerWidgetView(entry: entry)
         }
         .configurationDisplayName("Power Flow")
-        .description("Battery charge rate, charger input and system load.")
+        .description("Where your power flows, and whether the battery gains or loses.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
