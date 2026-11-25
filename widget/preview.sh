@@ -8,5 +8,6 @@ cd "$(dirname "$0")"
 
 mkdir -p build
 xcrun swiftc -O -parse-as-library -target arm64-apple-macos14.0 \
-    Sources/PowerSample.swift Sources/Views.swift Preview/States.swift -o build/states
+    Sources/PowerSample.swift Sources/PowerPresentation.swift Sources/Views.swift \
+    Sources/LoopView.swift Sources/LoopRing.swift Preview/States.swift -o build/states
 ./build/states build
