@@ -6,12 +6,18 @@ import AppKit
 import CoreGraphics
 import WidgetKit
 
+// Rust calls both functions from its sampling thread, which has no autorelease pool that
+// drains. Each one runs in its own pool, or the objects AppKit and the window list
+// autorelease would pile up on every sample.
+
 /// Asks WidgetKit to reload the Power Flow widget. The kind is the one in
 /// widget/Sources/WattopWidget.swift.
 @_cdecl("wattop_widget_reload")
 public func wattopWidgetReload() {
-    if #available(macOS 11.0, *) {
-        WidgetCenter.shared.reloadTimelines(ofKind: "power-flow")
+    autoreleasepool {
+        if #available(macOS 11.0, *) {
+            WidgetCenter.shared.reloadTimelines(ofKind: "power-flow")
+        }
     }
 }
 
@@ -21,6 +27,10 @@ public func wattopWidgetReload() {
 /// desktop widget counts, not only Power Flow.
 @_cdecl("wattop_widgets_on_screen")
 public func wattopWidgetsOnScreen() -> Bool {
+    autoreleasepool { widgetsOnScreen() }
+}
+
+private func widgetsOnScreen() -> Bool {
     let session = CGSessionCopyCurrentDictionary() as? [String: Any]
     if session?["CGSSessionScreenIsLocked"] as? Bool == true { return false }
     if CGDisplayIsAsleep(CGMainDisplayID()) != 0 { return false }
